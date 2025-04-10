@@ -51,12 +51,12 @@ def search_nationals_news(_: None = None) -> List[NewsArticle]:
     
     if not google_api_key or not google_cse_id:
         print("Warning: Google API credentials not found in .env file. Using mock data.")
-        return get_mock_nationals_news()
+
         
     params = {
         "key": google_api_key,
         "cx": google_cse_id,
-        "q": "Washington Nationals game score news today",
+        "q": "Washington Nationals game most recent game news from last 24 hours",
         "num": 5
     }
 
@@ -83,37 +83,10 @@ def search_nationals_news(_: None = None) -> List[NewsArticle]:
             return articles
         else:
             # Return mock data if the search fails
-            return get_mock_nationals_news()
+            print(f"Error: {response.status_code} - {response.text}")
     except Exception as e:
         print(f"Error during web search: {str(e)}")
         return get_mock_nationals_news()
-
-
-def get_mock_nationals_news() -> List[NewsArticle]:
-    """Provide mock Nationals news data as fallback"""
-    return [
-        {
-            "title": "Nationals Rally Late to Beat Phillies in Series Opener",
-            "source": "Washington Post",
-            "url": "https://example.com/nationals-phillies-game",
-            "published_at": "2025-04-08T20:30:00Z",
-            "summary": "The Washington Nationals scored three runs in the ninth inning to defeat the Philadelphia Phillies 5-3 in the first game of their series."
-        },
-        {
-            "title": "Lane Thomas Powers Nationals Past Phillies with Late Heroics",
-            "source": "MLB.com",
-            "url": "https://example.com/thomas-nationals-victory",
-            "published_at": "2025-04-08T21:15:00Z",
-            "summary": "Lane Thomas hit a go-ahead two-run homer in the ninth inning as the Nationals rallied to beat the Phillies 5-3 at Citizens Bank Park."
-        },
-        {
-            "title": "Nationals Bullpen Shines in Victory Against Phillies",
-            "source": "ESPN",
-            "url": "https://example.com/nationals-bullpen-phillies",
-            "published_at": "2025-04-08T22:00:00Z",
-            "summary": "The Washington Nationals' relievers pitched 3.1 scoreless innings, setting the stage for the team's ninth-inning rally against the Phillies."
-        }
-    ]
 
 
 # Define the agents (nodes in the graph)
