@@ -2,7 +2,7 @@ import os
 from typing import Dict, List, TypedDict, Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
-from langchain_anthropic import ChatAnthropic  # Changed from langchain_openai to langchain_anthropic
+from langchain_anthropic import ChatAnthropic
 import requests
 from datetime import datetime
 import json
@@ -51,7 +51,7 @@ def search_nationals_news(_: None = None) -> List[NewsArticle]:
     
     if not google_api_key or not google_cse_id:
         print("Warning: Google API credentials not found in .env file. Using mock data.")
-
+        return get_mock_nationals_news()
         
     params = {
         "key": google_api_key,
@@ -84,16 +84,47 @@ def search_nationals_news(_: None = None) -> List[NewsArticle]:
         else:
             # Return mock data if the search fails
             print(f"Error: {response.status_code} - {response.text}")
+            return get_mock_nationals_news()
     except Exception as e:
         print(f"Error during web search: {str(e)}")
         return get_mock_nationals_news()
 
 
+def get_mock_nationals_news() -> List[NewsArticle]:
+    """Return mock data for demonstration purposes"""
+    print("Using mock data for Washington Nationals news")
+    return [
+        {
+            "title": "Nationals defeat Marlins 5-3 behind CJ Abrams' home run",
+            "source": "washingtonpost.com",
+            "url": "https://www.washingtonpost.com/sports/nationals",
+            "published_at": datetime.now().isoformat(),
+            "summary": "CJ Abrams hit a two-run homer and the Washington Nationals defeated the Miami Marlins 5-3 on Sunday."
+        },
+        {
+            "title": "Nationals' MacKenzie Gore strikes out 10 in win over Phillies",
+            "source": "mlb.com",
+            "url": "https://www.mlb.com/nationals/news",
+            "published_at": datetime.now().isoformat(),
+            "summary": "Left-hander MacKenzie Gore struck out 10 batters over six innings as the Nationals beat the Phillies 4-2."
+        },
+        {
+            "title": "James Wood makes spectacular catch in Nationals victory",
+            "source": "nbcsports.com",
+            "url": "https://www.nbcsports.com/washington/nationals",
+            "published_at": datetime.now().isoformat(),
+            "summary": "Rookie outfielder James Wood made a diving catch to save two runs in the Nationals' 3-1 win over the Braves."
+        }
+    ]
+
+
 # Define the agents (nodes in the graph)
-def news_agent(state: AgentState) -> Dict:
+def news_agent(state) -> AgentState:
     """
-    Agent responsible for searching news and writing a blog post
+    Agent responsible for searching news
     """
+    print("Running news_agent...")
+    
     # Create a copy of the state to avoid modifying the input
     new_state = state.copy()
 
@@ -112,81 +143,37 @@ def news_agent(state: AgentState) -> Dict:
             "content": f"Collected {len(news_data)} news articles about the Washington Nationals"
         })
 
-        return {"state": new_state, "next": "blog_writer"}
-
-    # If we have proofreading feedback, create the final version
-    elif "proofread_feedback" in state and state["proofread_feedback"]:
-        print("\n==== DEBUG: Generating final post from feedback ====")
-        print(f"Draft blog post: {state.get('draft_blog_post', 'MISSING')[:50]}...")
-        print(f"Proofread feedback: {state.get('proofread_feedback', 'MISSING')[:50]}...")
-        
-        # Initialize the language model (Claude instead of OpenAI)
-        llm = ChatAnthropic(
-            model="claude-3-7-sonnet-20250219",  # Using Claude 3.7 Sonnet model
-            anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "your-anthropic-api-key"),
-            temperature=0.7
-        )
-
-        # Create messages for the LLM
-        messages = [
-            SystemMessage(content="You are a skilled sports writer who incorporates feedback to improve blog posts."),
-            HumanMessage(content=f"""
-                You wrote this draft blog post about a Washington Nationals game:
-
-                {state["draft_blog_post"]}
-
-                You received this proofreading feedback:
-
-                {state["proofread_feedback"]}
-
-                Create a final, revised version of the blog post that addresses all the feedback while 
-                maintaining your enthusiastic tone and fan-oriented style.
-
-                Return ONLY the final, polished blog post ready for publication.
-            """)
-        ]
-
-        # Generate the final blog post
-        response = llm.invoke(messages)
-        final_blog_post = response.content
-
-        # Update state
-        new_state["final_blog_post"] = final_blog_post
-
-        # Add a log message
-        if "messages" not in new_state:
-            new_state["messages"] = []
-
-        new_state["messages"].append({
-            "role": "system",
-            "content": "Final blog post written based on proofreading feedback"
-        })
-
-        return {"state": new_state, "next": END}
-
-    # If we're in an unexpected state, end the workflow
+    print("News agent completed. Next: blog_writer")
     return {"state": new_state, "next": "blog_writer"}
 
 
-def blog_writer(state: AgentState) -> Dict:
+def blog_writer(state) -> AgentState:
     """
     Agent responsible for writing the initial blog post draft
     """
-    # Make a copy of the state
+    print("Running blog_writer...")
+    
+    # Create a copy of the state to avoid modifying the input
     new_state = state.copy()
 
     print("\n==== DEBUG: Writing draft blog post ====")
-    print(f"News data length: {len(state.get('news_data', []))}")
+    news_data = state.get("news_data", [])
+    print(f"News data length: {len(news_data)}")
     
-    # Initialize the language model (Claude instead of OpenAI)
+    # If no news data is available, get some with search_nationals_news
+    if not news_data:
+        news_data = search_nationals_news.invoke(None)
+        new_state["news_data"] = news_data
+        print(f"Retrieved {len(news_data)} news articles")
+    
+    # Initialize the language model
     llm = ChatAnthropic(
-        model="claude-3-7-sonnet-20250219",  # Using Claude 3.7 Sonnet model
-        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "your-anthropic-api-key"),
+        model="claude-3-7-sonnet-20250219",
+        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"),
         temperature=0.7
     )
 
-    # Create messages for the LLM
-    news_data = state.get("news_data", [])
+    # Print sample news data
     print(f"Sample news data: {json.dumps(news_data[0] if news_data else {})}")
     
     messages = [
@@ -229,27 +216,34 @@ def blog_writer(state: AgentState) -> Dict:
         "role": "system",
         "content": "Draft blog post written"
     })
-
+    
+    print("Blog writer completed. Next: proofreader")
     return {"state": new_state, "next": "proofreader"}
 
 
-def proofreader(state: AgentState) -> Dict:
+def proofreader(state) -> AgentState:
     """
     Agent responsible for proofreading the blog post and providing feedback
     """
+    print("Running proofreader...")
+    
     # Make a copy of the state
     new_state = state.copy()
 
     print("\n==== DEBUG: Proofreading blog post ====")
-    print(f"Draft blog post available: {'draft_blog_post' in state}")
-    if 'draft_blog_post' in state:
-        print(f"Draft length: {len(state['draft_blog_post'])}")
-        print(f"Draft preview: {state['draft_blog_post'][:100]}...")
+    
+    # Check if draft blog post is available
+    if 'draft_blog_post' not in state:
+        print("ERROR: Draft blog post not found in state. Returning to blog_writer.")
+        return {"state": new_state, "next": "blog_writer"}
+        
+    print(f"Draft length: {len(state['draft_blog_post'])}")
+    print(f"Draft preview: {state['draft_blog_post'][:100]}...")
     
     # Initialize the language model with lower temperature for more consistent proofreading
     llm = ChatAnthropic(
-        model="claude-3-7-sonnet-20250219",  # Using Claude 3.7 Sonnet model
-        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "your-anthropic-api-key"),
+        model="claude-3-7-sonnet-20250219",
+        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"),
         temperature=0.2
     )
 
@@ -263,7 +257,7 @@ def proofreader(state: AgentState) -> Dict:
 
             Check the post against these news sources to ensure accuracy:
 
-            {json.dumps(state["news_data"], indent=2)}
+            {json.dumps(state.get("news_data", []), indent=2)}
 
             Evaluate the post for:
             1. Spelling and grammar errors
@@ -292,147 +286,51 @@ def proofreader(state: AgentState) -> Dict:
         "content": "Proofreading feedback provided"
     })
 
-    return {"state": new_state, "next": "news_agent"}
+    print("Proofreader completed. Next: finalizer")
+    return {"state": new_state, "next": "finalizer"}
 
 
-# Add a function to create a web search agent
-def web_search_agent(state: AgentState) -> Dict:
+def finalizer(state) -> AgentState:
     """
-    Agent responsible for searching the web for the latest Washington Nationals news
+    Agent responsible for creating the final version of the blog post
     """
+    print("Running finalizer...")
+    
     # Make a copy of the state
     new_state = state.copy()
 
+    print("\n==== DEBUG: Generating final post from feedback ====")
+    
+    # Check if required data is available
+    if 'draft_blog_post' not in state:
+        print("ERROR: Draft blog post not found in state. Returning to blog_writer.")
+        return {"state": new_state, "next": "blog_writer"}
+        
+    if 'proofread_feedback' not in state:
+        print("ERROR: Proofread feedback not found in state. Returning to proofreader.")
+        return {"state": new_state, "next": "proofreader"}
+    
+    print(f"Draft blog post: {state['draft_blog_post'][:50]}...")
+    print(f"Proofread feedback: {state['proofread_feedback'][:50]}...")
+    
     # Initialize the language model
     llm = ChatAnthropic(
-        model="claude-3-7-sonnet-20250219",  # Using Claude 3.7 Sonnet model
-        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "your-anthropic-api-key"),
-        temperature=0.2
-    )
-
-    # In a real implementation, you would use LangChain's tools to perform a web search
-    # For simplicity, we'll use our mock data
-    news_data = search_nationals_news.invoke(None)
-
-    # Update state with the search results
-    new_state["news_data"] = news_data
-
-    # Add a log message
-    if "messages" not in new_state:
-        new_state["messages"] = []
-
-    new_state["messages"].append({
-        "role": "system",
-        "content": f"Found {len(news_data)} recent articles about Washington Nationals games"
-    })
-
-    return {"state": new_state, "next": "blog_writer"}
-
-
-# Instead of attempting to fix the langgraph approach, we'll keep the simplified, working solution
-# This is a placeholder that would be used in a graph-based approach
-def build_nationals_blog_system() -> Any:
-    """
-    Build and return the multi-agent workflow for creating Nationals blog posts
-    """
-    # For now, we're using a simplified sequential approach that works correctly
-    print("Using simplified sequential approach instead of graph workflow")
-    return None
-
-
-# Main function to run the system using a simplified sequential approach
-def run_nationals_blog_system() -> str:
-    """
-    Run the multi-agent system and return the final blog post
-    """
-    # Ensure Anthropic API key is set
-    if "ANTHROPIC_API_KEY" not in os.environ:
-        print("Warning: ANTHROPIC_API_KEY environment variable not set. Using placeholder value.")
-        os.environ["ANTHROPIC_API_KEY"] = "your-anthropic-api-key"
-
-    # Get news data (using search or mock data)
-    news_data = search_nationals_news.invoke(None)
-    print(f"Got {len(news_data)} news articles")
-    
-    # Print out links to news articles
-    print("\n=== NEWS ARTICLE LINKS ===")
-    for i, article in enumerate(news_data):
-        print(f"{i+1}. {article['title']}: {article['url']}")
-    
-    # Write draft blog post directly
-    llm = ChatAnthropic(
-        model="claude-3-7-sonnet-20250219",  # Using Claude 3.7 Sonnet model
-        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "your-anthropic-api-key"),
+        model="claude-3-7-sonnet-20250219",
+        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"),
         temperature=0.7
     )
-    
+
     # Create messages for the LLM
     messages = [
-        SystemMessage(
-            content="You are a passionate baseball blogger who specializes in writing engaging content about the Washington Nationals."),
-        HumanMessage(content=f"""
-            Based on these recent news articles about the Washington Nationals:
-
-            {json.dumps(news_data, indent=2)}
-
-            Write an engaging blog post about their most recent game. Your blog post should:
-
-            1. Have a catchy, attention-grabbing title
-            2. Be approximately 500 words in length
-            3. Focus on the key moments, plays, and standout players from the game
-            4. Include the final score and important statistics
-            5. Use an enthusiastic, fan-oriented tone that shows your passion for the team
-
-            Write ONLY the complete blog post, formatted and ready for publication.
-        """)
-    ]
-
-    # Generate the draft blog post
-    print("Generating draft blog post...")
-    response = llm.invoke(messages)
-    draft_blog_post = response.content
-    print(f"Draft blog post generated, length: {len(draft_blog_post)}")
-    
-    # Proofread the blog post
-    print("Proofreading the blog post...")
-    proofread_messages = [
-        SystemMessage(content="You are a professional editor who specializes in proofreading sports content."),
-        HumanMessage(content=f"""
-            Proofread this blog post about a Washington Nationals baseball game:
-
-            {draft_blog_post}
-
-            Check the post against these news sources to ensure accuracy:
-
-            {json.dumps(news_data, indent=2)}
-
-            Evaluate the post for:
-            1. Spelling and grammar errors
-            2. Factual accuracy compared to the news sources
-            3. Flow and readability
-            4. Appropriate tone for a baseball blog
-            5. Clarity and conciseness
-
-            Provide detailed, actionable feedback for improvement.
-        """)
-    ]
-    
-    response = llm.invoke(proofread_messages)
-    proofread_feedback = response.content
-    print(f"Proofreading feedback generated, length: {len(proofread_feedback)}")
-    
-    # Generate final blog post based on feedback
-    print("Generating final blog post...")
-    final_messages = [
         SystemMessage(content="You are a skilled sports writer who incorporates feedback to improve blog posts."),
         HumanMessage(content=f"""
             You wrote this draft blog post about a Washington Nationals game:
 
-            {draft_blog_post}
+            {state["draft_blog_post"]}
 
             You received this proofreading feedback:
 
-            {proofread_feedback}
+            {state["proofread_feedback"]}
 
             Create a final, revised version of the blog post that addresses all the feedback while 
             maintaining your enthusiastic tone and fan-oriented style.
@@ -440,15 +338,141 @@ def run_nationals_blog_system() -> str:
             Return ONLY the final, polished blog post ready for publication.
         """)
     ]
-    
-    response = llm.invoke(final_messages)
+
+    # Generate the final blog post
+    response = llm.invoke(messages)
     final_blog_post = response.content
-    print(f"Final blog post generated, length: {len(final_blog_post)}")
+
+    # Update state
+    new_state["final_blog_post"] = final_blog_post
+
+    # Add a log message
+    if "messages" not in new_state:
+        new_state["messages"] = []
+
+    new_state["messages"].append({
+        "role": "system",
+        "content": "Final blog post written based on proofreading feedback"
+    })
+
+    print("Finalizer completed. Workflow ending.")
+    return {"state": new_state, "next": END}
+
+
+def build_nationals_blog_system() -> StateGraph:
+    """
+    Build and return the multi-agent workflow for creating Nationals blog posts using LangGraph
+    """
+    # Define the workflow as a graph
+    workflow = StateGraph(AgentState)
+    
+    # Add the agent nodes
+    workflow.add_node("news_agent", news_agent)
+    workflow.add_node("blog_writer", blog_writer)
+    workflow.add_node("proofreader", proofreader)
+    workflow.add_node("finalizer", finalizer)
+    
+    # Define the edges between nodes
+    workflow.add_edge("news_agent", "blog_writer")
+    workflow.add_edge("blog_writer", "proofreader")
+    workflow.add_edge("proofreader", "finalizer")
+    workflow.add_edge("finalizer", END)
+    
+    # Set the entry point (start node)
+    workflow.set_entry_point("news_agent")
+    
+    # Compile the graph
+    return workflow.compile()
+
+
+def run_nationals_blog_system_debug() -> str:
+    """
+    Run the multi-agent system in a simple sequential way for debugging
+    """
+    # Ensure Anthropic API key is set
+    if "ANTHROPIC_API_KEY" not in os.environ:
+        print("Warning: ANTHROPIC_API_KEY environment variable not set. Using placeholder value.")
+        os.environ["ANTHROPIC_API_KEY"] = "your_anthropic_api_key"
+
+    # Get initial news data
+    news_data = search_nationals_news.invoke(None)
+    
+    # Initialize the state with news data
+    initial_state = {
+        "messages": [{"role": "system", "content": "Starting blog creation workflow"}],
+        "news_data": news_data
+    }
+    
+    print("Starting debug workflow...")
+    
+    # Run news_agent
+    print("\n=== NEWS AGENT ===")
+    news_result = news_agent(initial_state)
+    state = news_result["state"]
+    
+    # Run blog_writer
+    print("\n=== BLOG WRITER ===")
+    blog_result = blog_writer(state)
+    state = blog_result["state"]
+    
+    # Run proofreader
+    print("\n=== PROOFREADER ===")
+    proof_result = proofreader(state)
+    state = proof_result["state"]
+    
+    # Run finalizer
+    print("\n=== FINALIZER ===")
+    final_result = finalizer(state)
+    state = final_result["state"]
+    
+    # Extract and return the final blog post
+    final_blog_post = state.get("final_blog_post", "Failed to generate blog post.")
     
     print("\n=== FINAL BLOG POST ===\n")
     print(final_blog_post)
     
     return final_blog_post
+
+
+def run_nationals_blog_system() -> str:
+    """
+    Run the multi-agent system and return the final blog post
+    """
+    # Ensure Anthropic API key is set
+    if "ANTHROPIC_API_KEY" not in os.environ:
+        print("Warning: ANTHROPIC_API_KEY environment variable not set. Using placeholder value.")
+        os.environ["ANTHROPIC_API_KEY"] = "your_anthropic_api_key"
+
+    # Choose whether to use the LangGraph or sequential approach
+    # For now, just run the debug (sequential) version that we know works
+    return run_nationals_blog_system_debug()
+    
+    # The LangGraph version below can be uncommented after more debugging:
+    """
+    # Build the workflow
+    workflow = build_nationals_blog_system()
+    
+    # Get initial news data
+    news_data = search_nationals_news.invoke(None)
+    
+    # Initialize the state with news data
+    initial_state = AgentState(
+        messages=[{"role": "system", "content": "Starting blog creation workflow"}],
+        news_data=news_data
+    )
+    
+    # Execute the workflow
+    print("Starting the Nationals blog creation workflow...")
+    result = workflow.invoke(initial_state)
+    
+    # Extract and return the final blog post
+    final_blog_post = result.get("final_blog_post", "Failed to generate blog post.")
+    
+    print("\n=== FINAL BLOG POST ===\n")
+    print(final_blog_post)
+    
+    return final_blog_post
+    """
 
 
 if __name__ == "__main__":
