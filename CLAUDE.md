@@ -520,6 +520,18 @@ This is a demonstration/educational project showing multi-agent workflows with L
 
 ---
 
-**Last Updated**: 2025-11-21
+## Recent Updates
+
+### 2025-12-14
+- ✅ Added `requirements.txt` with all Python dependencies
+- ✅ Created `.env.example` template for environment variables
+- ✅ Added comprehensive `.gitignore` for Python projects
+- ✅ Completely rewrote README.md with better structure and examples
+- ✅ Added emojis and visual improvements to documentation
+- ✅ Included architecture diagram and example output
+
+---
+
+**Last Updated**: 2025-12-14
 **Claude Model Used**: Claude 3.7 Sonnet (claude-3-7-sonnet-20250219)
 **Project Status**: Functional with sequential workflow, LangGraph version pending debugging

@@ -1,50 +1,192 @@
-# Blogger Agent
+# Blogger Agent 🏟️⚾
 
-A multi-agent system that automatically generates engaging blog posts about Washington Nationals baseball games.
+A multi-agent system that automatically generates engaging blog posts about Washington Nationals baseball games using AI-powered workflow automation.
 
-## Features
+## 🌟 Features
 
-- Searches for the latest Washington Nationals news using Google Custom Search API
-- Generates a draft blog post about recent games
-- Proofreads the content for accuracy, grammar, and style
-- Creates a final polished blog post incorporating feedback
+- **Intelligent News Search**: Automatically searches for the latest Washington Nationals news using Google Custom Search API
+- **Multi-Agent Workflow**: Employs specialized AI agents for different tasks:
+  - 📰 **News Agent**: Collects recent game information
+  - ✍️ **Blog Writer**: Drafts engaging content
+  - 📝 **Proofreader**: Reviews for accuracy and quality
+  - ✨ **Finalizer**: Polishes the final version
+- **Powered by Claude 3.7 Sonnet**: Leverages Anthropic's latest AI model for high-quality content generation
+- **Graceful Degradation**: Falls back to mock data if API credentials aren't configured
+- **Type-Safe**: Built with Python type hints for better code quality
 
-## Setup
-
-1. Clone the repository
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-3. Create a `.env` file with the following credentials:
-   ```
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   GOOGLE_API_KEY=your_google_api_key
-   GOOGLE_CSE_ID=your_google_custom_search_id
-   ```
-
-## Usage
-
-Run the main script to generate a blog post:
+## 🏗️ Architecture
 
 ```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌───────────┐
+│ news_agent  │ --> │ blog_writer │ --> │ proofreader │ --> │ finalizer │
+└─────────────┘     └─────────────┘     └─────────────┘     └───────────┘
+```
+
+Each agent receives the workflow state, performs its specialized task, and passes the updated state to the next agent.
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.8 or higher
+- Anthropic API key ([Get one here](https://console.anthropic.com/))
+- (Optional) Google Custom Search API credentials for live news
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/blogger-agent.git
+   cd blogger-agent
+   ```
+
+2. **Create a virtual environment** (recommended)
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env` and add your API keys:
+   ```bash
+   # Required
+   ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+   # Optional (uses mock data if not provided)
+   GOOGLE_API_KEY=your-google-api-key
+   GOOGLE_CSE_ID=your-custom-search-engine-id
+   ```
+
+### Running the Agent
+
+```bash
 python agent.py
 ```
 
-The script will:
-1. Search for recent Nationals news
-2. Print the found article links
-3. Generate a draft blog post
-4. Proofread the content
-5. Create a final polished version
+The system will:
+1. 🔍 Search for recent Washington Nationals news
+2. 📄 Display found article links
+3. ✍️ Generate a draft blog post (~500 words)
+4. 🔍 Proofread the content
+5. ✨ Create a final polished version
+6. 📋 Print the final blog post to the console
 
-## Requirements
+## 📋 Example Output
 
-- Python 3.8+
-- LangChain
-- Anthropic Claude API access (uses Claude 3.7 Sonnet model)
-- Google Custom Search API credentials
+```
+=== SEARCH RESULTS ===
+Found article 1: Nationals defeat Marlins 5-3 behind CJ Abrams' home run at ...
+Found article 2: MacKenzie Gore strikes out 10 in win over Phillies at ...
 
-## Note
+Running news_agent...
+Running blog_writer...
+Draft blog post generated, length: 1847
 
-If Google API credentials are not found in the `.env` file, the system will fall back to using mock data for demonstration purposes.
+Running proofreader...
+Proofreader completed.
+
+Running finalizer...
+
+=== FINAL BLOG POST ===
+
+Nationals Surge to Victory: CJ Abrams Powers Win Over Marlins
+
+The Washington Nationals continued their impressive form with a commanding 5-3
+victory over the Miami Marlins... [full blog post]
+```
+
+## 🛠️ Configuration
+
+### Customizing the Workflow
+
+You can modify agent behavior in `agent.py`:
+
+- **Search query**: Line 59 - Adjust the search terms
+- **Blog length**: Line 190 - Change word count requirement
+- **Temperature settings**:
+  - Lines 171, 318: 0.7 (creative writing)
+  - Line 245: 0.2 (precise proofreading)
+
+### Using Mock Data
+
+If you don't have Google API credentials, the system automatically uses realistic mock data for demonstration. This is perfect for testing and development.
+
+## 📚 Project Structure
+
+```
+blogger-agent/
+├── agent.py              # Main application with all agents
+├── requirements.txt      # Python dependencies
+├── .env.example         # Environment variable template
+├── .gitignore           # Git ignore rules
+├── README.md            # This file
+└── CLAUDE.md            # AI assistant documentation
+```
+
+## 🔧 Technology Stack
+
+- **LangChain**: Framework for building LLM applications
+- **LangGraph**: Workflow orchestration
+- **Anthropic Claude**: AI model for content generation
+- **Google Custom Search**: Real-time news retrieval
+- **Python 3.8+**: Core language
+
+## 🧪 Development
+
+### Type Checking
+
+The project uses Python TypedDict for state management:
+
+```python
+class AgentState(TypedDict, total=False):
+    messages: List[Dict[str, str]]
+    news_data: List[NewsArticle]
+    draft_blog_post: str
+    proofread_feedback: str
+    final_blog_post: str
+```
+
+### Adding New Agents
+
+See `CLAUDE.md` for detailed instructions on extending the workflow with additional agents.
+
+## 🤝 Contributing
+
+Contributions are welcome! Areas for improvement:
+
+- [ ] Add support for other MLB teams
+- [ ] Implement blog post saving to files
+- [ ] Add unit tests
+- [ ] Enable the LangGraph workflow (currently using sequential execution)
+- [ ] Add HTML/Markdown output formatting
+- [ ] Create a web interface
+
+## 📝 License
+
+MIT License - feel free to use this project for your own purposes.
+
+## 🙏 Acknowledgments
+
+- Built with [LangChain](https://python.langchain.com/)
+- Powered by [Anthropic Claude](https://www.anthropic.com/)
+- Inspired by multi-agent system architectures
+
+## 📞 Support
+
+For issues or questions:
+- Check `CLAUDE.md` for detailed technical documentation
+- Review the code comments in `agent.py`
+- Open an issue on GitHub
+
+---
+
+**Note**: This is a demonstration project showing how to build multi-agent workflows with LangChain and Claude. The sequential execution approach is intentionally kept simple for educational purposes.
