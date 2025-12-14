@@ -1,16 +1,18 @@
-# Blogger Agent 🏟️⚾
+# Blogger Agent ✍️🤖
 
-A multi-agent system that automatically generates engaging blog posts about Washington Nationals baseball games using AI-powered workflow automation.
+A multi-agent system that automatically generates engaging blog posts on **any subject** using AI-powered workflow automation. Powered by Claude 3.7 Sonnet and LangGraph.
 
 ## 🌟 Features
 
-- **Intelligent News Search**: Automatically searches for the latest Washington Nationals news using Google Custom Search API
+- **Any Subject**: Write about **anything** - sports, technology, politics, entertainment, or any topic you choose
+- **Intelligent News Search**: Automatically searches for the latest news on your subject using Google Custom Search API
 - **Multi-Agent Workflow**: Employs specialized AI agents for different tasks:
-  - 📰 **News Agent**: Collects recent game information
-  - ✍️ **Blog Writer**: Drafts engaging content
-  - 📝 **Proofreader**: Reviews for accuracy and quality
+  - 📰 **News Agent**: Collects recent articles about your subject
+  - ✍️ **Blog Writer**: Drafts engaging content tailored to your topic
+  - 📝 **Proofreader**: Reviews for accuracy, grammar, and quality
   - ✨ **Finalizer**: Polishes the final version
 - **Powered by Claude 3.7 Sonnet**: Leverages Anthropic's latest AI model for high-quality content generation
+- **Flexible Input**: Provide subject via command-line argument or interactive prompt
 - **Graceful Degradation**: Falls back to mock data if API credentials aren't configured
 - **Type-Safe**: Built with Python type hints for better code quality
 
@@ -68,40 +70,72 @@ Each agent receives the workflow state, performs its specialized task, and passe
 
 ### Running the Agent
 
+**Option 1: Interactive Mode**
 ```bash
 python agent.py
 ```
 
+**Option 2: Command-Line Argument**
+```bash
+python agent.py --subject "artificial intelligence trends"
+python agent.py -s "climate change solutions"
+```
+
+**Option 3: Help**
+```bash
+python agent.py --help
+```
+
 The system will:
-1. 🔍 Search for recent Washington Nationals news
+1. 🔍 Search for recent news about your subject
 2. 📄 Display found article links
 3. ✍️ Generate a draft blog post (~500 words)
 4. 🔍 Proofread the content
 5. ✨ Create a final polished version
 6. 📋 Print the final blog post to the console
 
+### Example Subjects
+
+- "Washington Nationals baseball"
+- "artificial intelligence developments"
+- "renewable energy technology"
+- "space exploration"
+- "electric vehicles"
+- "cryptocurrency trends"
+- ...or literally anything else!
+
 ## 📋 Example Output
 
 ```
-=== SEARCH RESULTS ===
-Found article 1: Nationals defeat Marlins 5-3 behind CJ Abrams' home run at ...
-Found article 2: MacKenzie Gore strikes out 10 in win over Phillies at ...
+$ python agent.py --subject "electric vehicles"
 
+Starting the blog creation workflow with LangGraph...
+Subject: electric vehicles
+============================================================
 Running news_agent...
+Searching for news about: electric vehicles
+
+=== SEARCH RESULTS FOR: electric vehicles ===
+Found article 1: Tesla announces new battery technology at ...
+Found article 2: Electric vehicle sales surge 40% in Q4 at ...
+Found article 3: Major automakers commit to EV transition at ...
+
 Running blog_writer...
-Draft blog post generated, length: 1847
+Draft blog post generated, length: 1923
 
 Running proofreader...
 Proofreader completed.
 
 Running finalizer...
 
+============================================================
 === FINAL BLOG POST ===
 
-Nationals Surge to Victory: CJ Abrams Powers Win Over Marlins
+The Electric Revolution: How EVs Are Transforming Transportation
 
-The Washington Nationals continued their impressive form with a commanding 5-3
-victory over the Miami Marlins... [full blog post]
+The automotive industry is undergoing its most significant transformation
+in over a century... [full blog post]
+============================================================
 ```
 
 ## 🛠️ Configuration
@@ -110,11 +144,12 @@ victory over the Miami Marlins... [full blog post]
 
 You can modify agent behavior in `agent.py`:
 
-- **Search query**: Line 59 - Adjust the search terms
-- **Blog length**: Line 190 - Change word count requirement
+- **Search parameters**: Edit `search_news()` function (line 38)
+- **Blog length**: Line 204 - Change word count requirement
 - **Temperature settings**:
-  - Lines 171, 318: 0.7 (creative writing)
-  - Line 245: 0.2 (precise proofreading)
+  - Lines 187, 327: 0.7 (creative writing)
+  - Line 256: 0.2 (precise proofreading)
+- **Agent prompts**: Customize the SystemMessage and HumanMessage content in each agent
 
 ### Using Mock Data
 

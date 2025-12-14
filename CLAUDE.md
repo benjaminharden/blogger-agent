@@ -2,14 +2,15 @@
 
 ## Project Overview
 
-**Blogger Agent** is a multi-agent system built with Python, LangChain, and LangGraph that automatically generates engaging blog posts about Washington Nationals baseball games. The system uses Claude 3.7 Sonnet (via Anthropic API) to power a sequential workflow of specialized agents.
+**Blogger Agent** is a multi-agent system built with Python, LangChain, and LangGraph that automatically generates engaging blog posts on **any subject**. The system uses Claude 3.7 Sonnet (via Anthropic API) to power a LangGraph workflow of specialized agents.
 
 ### Purpose
 Generate publication-ready blog posts by:
-1. Searching for recent Washington Nationals news
-2. Drafting an engaging blog post
-3. Proofreading for accuracy and quality
-4. Producing a polished final version
+1. Accepting a user-specified subject/topic
+2. Searching for recent news about that subject
+3. Drafting an engaging blog post
+4. Proofreading for accuracy and quality
+5. Producing a polished final version
 
 ### Technology Stack
 - **Language**: Python 3.8+
@@ -41,20 +42,20 @@ The entire application is contained in this single, well-structured file:
 - `NewsArticle`: TypedDict for news article structure
 - `AgentState`: TypedDict for workflow state management
 
-**Tool** (lines 34-118):
-- `search_nationals_news()`: Google Custom Search API integration with fallback to mock data
-- `get_mock_nationals_news()`: Mock data provider for demos/testing
+**Tools** (lines 36-131):
+- `search_news(subject)`: Google Custom Search API integration with subject parameter
+- `get_mock_news(subject)`: Subject-aware mock data provider for demos/testing
 
-**Agent Functions** (lines 121-360):
-- `news_agent()`: Searches and collects news articles
-- `blog_writer()`: Generates initial blog draft using Claude
-- `proofreader()`: Reviews draft for accuracy, grammar, and style
-- `finalizer()`: Creates polished final version incorporating feedback
+**Agent Functions** (lines 134-365):
+- `news_agent(state)`: Searches and collects news articles about the subject
+- `blog_writer(state)`: Generates initial blog draft tailored to the subject
+- `proofreader(state)`: Reviews draft for accuracy, grammar, and style
+- `finalizer(state)`: Creates polished final version incorporating feedback
 
-**Workflow Builders** (lines 362-475):
-- `build_nationals_blog_system()`: LangGraph workflow definition (currently unused)
-- `run_nationals_blog_system_debug()`: Sequential execution (currently active)
-- `run_nationals_blog_system()`: Main entry point
+**Workflow and Entry Points** (lines 368-508):
+- `build_blog_system()`: LangGraph workflow definition (active)
+- `run_blog_system(subject)`: Main entry point that executes the workflow
+- `get_subject_from_user()`: CLI argument parser and interactive prompt handler
 
 ---
 
@@ -207,18 +208,27 @@ Extensive debug output throughout:
 ### Running the System
 
 ```bash
-# Basic execution
+# Interactive mode (prompts for subject)
 python agent.py
 
+# Command-line argument
+python agent.py --subject "artificial intelligence"
+python agent.py -s "climate change"
+
+# Get help
+python agent.py --help
+
 # Expected output flow:
-# 1. "Running news_agent..."
-# 2. Google search results or "Using mock data"
-# 3. "Running blog_writer..."
-# 4. "Draft blog post generated"
-# 5. "Running proofreader..."
-# 6. "Proofreader completed"
-# 7. "Running finalizer..."
-# 8. "=== FINAL BLOG POST ===" + content
+# 1. Subject prompt or parsing
+# 2. "Running news_agent..."
+# 3. "Searching for news about: [subject]"
+# 4. Google search results or "Using mock data"
+# 5. "Running blog_writer..."
+# 6. "Draft blog post generated"
+# 7. "Running proofreader..."
+# 8. "Proofreader completed"
+# 9. "Running finalizer..."
+# 10. "=== FINAL BLOG POST ===" + content
 ```
 
 ### Current Implementation
@@ -511,19 +521,22 @@ git push -u origin claude/claude-md-mi85vpwcxu2ctoyo-01Xpxn3TbyEozbBWVQWaRQJS
 - Documentation: `README.md`, `CLAUDE.md`
 
 ### Key Functions
-- Entry point: `run_nationals_blog_system()` (line 383)
-- LangGraph workflow builder: `build_nationals_blog_system()` (line 347)
-- Search: `search_nationals_news()` (line 35)
-- Mock data: `get_mock_nationals_news()` (line 93)
-- Agents: `news_agent()` (122), `blog_writer()` (151), `proofreader()` (217), `finalizer()` (282)
+- Entry point: `run_blog_system(subject)` (line 405)
+- User input handler: `get_subject_from_user()` (line 447)
+- LangGraph workflow builder: `build_blog_system()` (line 368)
+- Search: `search_news(subject)` (line 38)
+- Mock data: `get_mock_news(subject)` (line 99)
+- Agents: `news_agent()` (135), `blog_writer()` (167), `proofreader()` (235), `finalizer()` (302)
 
 ### Configuration
-- Claude model: Lines 167, 234, 304 (`claude-3-7-sonnet-20250219`)
-- Search query: Line 59
-- Blog length: Line 187 (~500 words)
-- Temperatures: 0.7 (creative), 0.2 (proofreading)
+- Claude model: Lines 184, 253, 324 (`claude-3-7-sonnet-20250219`)
+- Search query: Line 65 (uses subject parameter)
+- Blog length: Line 204 (~500 words)
+- Temperatures: 0.7 (creative at lines 187, 327), 0.2 (proofreading at line 256)
+- CLI arguments: argparse setup at line 454
 
 ### State Keys
+- `subject`: str (the topic for the blog post)
 - `news_data`: List[NewsArticle]
 - `draft_blog_post`: str
 - `proofread_feedback`: str
@@ -549,6 +562,19 @@ This is a demonstration/educational project showing multi-agent workflows with L
 ---
 
 ## Recent Updates
+
+### 2025-12-14 (Part 3) - Universal Subject Support! 🌐
+- ✅ **Made system subject-agnostic** - Now works for ANY topic, not just baseball
+- ✅ Added `subject` field to AgentState
+- ✅ Renamed `search_nationals_news()` to `search_news(subject)`
+- ✅ Updated `get_mock_news(subject)` to generate subject-aware mock data
+- ✅ All agents now use dynamic subject from state
+- ✅ Added CLI argument parsing (`--subject` / `-s`)
+- ✅ Added interactive mode with user prompts
+- ✅ Renamed `build_nationals_blog_system()` to `build_blog_system()`
+- ✅ Created `get_subject_from_user()` for flexible input handling
+- ✅ Updated all agent prompts to be topic-agnostic
+- ✅ Expanded from 418 to 507 lines (+89 lines for new functionality)
 
 ### 2025-12-14 (Part 2) - LangGraph Enabled! 🎉
 - ✅ **Enabled LangGraph workflow** - Now using proper graph-based execution
