@@ -163,12 +163,13 @@ See `CLAUDE.md` for detailed instructions on extending the workflow with additio
 
 Contributions are welcome! Areas for improvement:
 
+- [x] ~~Enable the LangGraph workflow~~ ✅ **Completed (2025-12-14)**
 - [ ] Add support for other MLB teams
 - [ ] Implement blog post saving to files
 - [ ] Add unit tests
-- [ ] Enable the LangGraph workflow (currently using sequential execution)
 - [ ] Add HTML/Markdown output formatting
 - [ ] Create a web interface
+- [ ] Add conditional routing in LangGraph for more complex workflows
 
 ## 📝 License
 
@@ -189,4 +190,4 @@ For issues or questions:
 
 ---
 
-**Note**: This is a demonstration project showing how to build multi-agent workflows with LangChain and Claude. The sequential execution approach is intentionally kept simple for educational purposes.
+**Note**: This is a demonstration project showing how to build multi-agent workflows with LangChain and Claude. The project now uses LangGraph for proper workflow orchestration, demonstrating best practices for building production-ready multi-agent systems.

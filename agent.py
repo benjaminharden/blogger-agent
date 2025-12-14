@@ -119,53 +119,50 @@ def get_mock_nationals_news() -> List[NewsArticle]:
 
 
 # Define the agents (nodes in the graph)
-def news_agent(state) -> AgentState:
+def news_agent(state: AgentState) -> AgentState:
     """
     Agent responsible for searching news
     """
     print("Running news_agent...")
-    
-    # Create a copy of the state to avoid modifying the input
-    new_state = state.copy()
 
     # Search for news if we don't have it yet
     if "news_data" not in state or not state["news_data"]:
         # Get the news
         news_data = search_nationals_news.invoke(None)
-        new_state["news_data"] = news_data
 
-        # Add a log message
-        if "messages" not in new_state:
-            new_state["messages"] = []
-
-        new_state["messages"].append({
+        # Prepare messages list
+        messages = state.get("messages", [])
+        messages.append({
             "role": "system",
             "content": f"Collected {len(news_data)} news articles about the Washington Nationals"
         })
 
-    print("News agent completed. Next: blog_writer")
-    return {"state": new_state, "next": "blog_writer"}
+        print(f"News agent completed. Collected {len(news_data)} articles.")
+        # Return state updates for LangGraph
+        return {
+            "news_data": news_data,
+            "messages": messages
+        }
+
+    print("News agent completed (data already present).")
+    return {}
 
 
-def blog_writer(state) -> AgentState:
+def blog_writer(state: AgentState) -> AgentState:
     """
     Agent responsible for writing the initial blog post draft
     """
     print("Running blog_writer...")
-    
-    # Create a copy of the state to avoid modifying the input
-    new_state = state.copy()
 
     print("\n==== DEBUG: Writing draft blog post ====")
     news_data = state.get("news_data", [])
     print(f"News data length: {len(news_data)}")
-    
+
     # If no news data is available, get some with search_nationals_news
     if not news_data:
         news_data = search_nationals_news.invoke(None)
-        new_state["news_data"] = news_data
         print(f"Retrieved {len(news_data)} news articles")
-    
+
     # Initialize the language model
     llm = ChatAnthropic(
         model="claude-3-7-sonnet-20250219",
@@ -175,8 +172,8 @@ def blog_writer(state) -> AgentState:
 
     # Print sample news data
     print(f"Sample news data: {json.dumps(news_data[0] if news_data else {})}")
-    
-    messages = [
+
+    llm_messages = [
         SystemMessage(
             content="You are a passionate baseball blogger who specializes in writing engaging content about the Washington Nationals."),
         HumanMessage(content=f"""
@@ -197,49 +194,42 @@ def blog_writer(state) -> AgentState:
     ]
 
     # Generate the draft blog post
-    response = llm.invoke(messages)
+    response = llm.invoke(llm_messages)
     draft_blog_post = response.content
     print(f"Draft blog post generated, length: {len(draft_blog_post)}")
     print(f"Preview: {draft_blog_post[:100]}...")
-    
-    # Update state
-    new_state["draft_blog_post"] = draft_blog_post
-    
-    # Debug state update
-    print(f"Updated state draft_blog_post length: {len(new_state['draft_blog_post'])}")
 
-    # Add a log message
-    if "messages" not in new_state:
-        new_state["messages"] = []
-
-    new_state["messages"].append({
+    # Prepare messages list
+    messages = state.get("messages", [])
+    messages.append({
         "role": "system",
         "content": "Draft blog post written"
     })
-    
-    print("Blog writer completed. Next: proofreader")
-    return {"state": new_state, "next": "proofreader"}
+
+    print("Blog writer completed.")
+    # Return state updates for LangGraph
+    return {
+        "draft_blog_post": draft_blog_post,
+        "messages": messages
+    }
 
 
-def proofreader(state) -> AgentState:
+def proofreader(state: AgentState) -> AgentState:
     """
     Agent responsible for proofreading the blog post and providing feedback
     """
     print("Running proofreader...")
-    
-    # Make a copy of the state
-    new_state = state.copy()
 
     print("\n==== DEBUG: Proofreading blog post ====")
-    
+
     # Check if draft blog post is available
-    if 'draft_blog_post' not in state:
-        print("ERROR: Draft blog post not found in state. Returning to blog_writer.")
-        return {"state": new_state, "next": "blog_writer"}
-        
+    if 'draft_blog_post' not in state or not state['draft_blog_post']:
+        print("ERROR: Draft blog post not found in state.")
+        raise ValueError("Draft blog post is required for proofreading")
+
     print(f"Draft length: {len(state['draft_blog_post'])}")
     print(f"Draft preview: {state['draft_blog_post'][:100]}...")
-    
+
     # Initialize the language model with lower temperature for more consistent proofreading
     llm = ChatAnthropic(
         model="claude-3-7-sonnet-20250219",
@@ -248,7 +238,7 @@ def proofreader(state) -> AgentState:
     )
 
     # Create messages for the LLM
-    messages = [
+    llm_messages = [
         SystemMessage(content="You are a professional editor who specializes in proofreading sports content."),
         HumanMessage(content=f"""
             Proofread this blog post about a Washington Nationals baseball game:
@@ -271,48 +261,44 @@ def proofreader(state) -> AgentState:
     ]
 
     # Generate the proofreading feedback
-    response = llm.invoke(messages)
+    response = llm.invoke(llm_messages)
     proofread_feedback = response.content
 
-    # Update state
-    new_state["proofread_feedback"] = proofread_feedback
-
-    # Add a log message
-    if "messages" not in new_state:
-        new_state["messages"] = []
-
-    new_state["messages"].append({
+    # Prepare messages list
+    messages = state.get("messages", [])
+    messages.append({
         "role": "system",
         "content": "Proofreading feedback provided"
     })
 
-    print("Proofreader completed. Next: finalizer")
-    return {"state": new_state, "next": "finalizer"}
+    print("Proofreader completed.")
+    # Return state updates for LangGraph
+    return {
+        "proofread_feedback": proofread_feedback,
+        "messages": messages
+    }
 
 
-def finalizer(state) -> AgentState:
+def finalizer(state: AgentState) -> AgentState:
     """
     Agent responsible for creating the final version of the blog post
     """
     print("Running finalizer...")
-    
-    # Make a copy of the state
-    new_state = state.copy()
 
     print("\n==== DEBUG: Generating final post from feedback ====")
-    
+
     # Check if required data is available
-    if 'draft_blog_post' not in state:
-        print("ERROR: Draft blog post not found in state. Returning to blog_writer.")
-        return {"state": new_state, "next": "blog_writer"}
-        
-    if 'proofread_feedback' not in state:
-        print("ERROR: Proofread feedback not found in state. Returning to proofreader.")
-        return {"state": new_state, "next": "proofreader"}
-    
+    if 'draft_blog_post' not in state or not state['draft_blog_post']:
+        print("ERROR: Draft blog post not found in state.")
+        raise ValueError("Draft blog post is required for finalizer")
+
+    if 'proofread_feedback' not in state or not state['proofread_feedback']:
+        print("ERROR: Proofread feedback not found in state.")
+        raise ValueError("Proofread feedback is required for finalizer")
+
     print(f"Draft blog post: {state['draft_blog_post'][:50]}...")
     print(f"Proofread feedback: {state['proofread_feedback'][:50]}...")
-    
+
     # Initialize the language model
     llm = ChatAnthropic(
         model="claude-3-7-sonnet-20250219",
@@ -321,7 +307,7 @@ def finalizer(state) -> AgentState:
     )
 
     # Create messages for the LLM
-    messages = [
+    llm_messages = [
         SystemMessage(content="You are a skilled sports writer who incorporates feedback to improve blog posts."),
         HumanMessage(content=f"""
             You wrote this draft blog post about a Washington Nationals game:
@@ -332,7 +318,7 @@ def finalizer(state) -> AgentState:
 
             {state["proofread_feedback"]}
 
-            Create a final, revised version of the blog post that addresses all the feedback while 
+            Create a final, revised version of the blog post that addresses all the feedback while
             maintaining your enthusiastic tone and fan-oriented style.
 
             Return ONLY the final, polished blog post ready for publication.
@@ -340,23 +326,22 @@ def finalizer(state) -> AgentState:
     ]
 
     # Generate the final blog post
-    response = llm.invoke(messages)
+    response = llm.invoke(llm_messages)
     final_blog_post = response.content
 
-    # Update state
-    new_state["final_blog_post"] = final_blog_post
-
-    # Add a log message
-    if "messages" not in new_state:
-        new_state["messages"] = []
-
-    new_state["messages"].append({
+    # Prepare messages list
+    messages = state.get("messages", [])
+    messages.append({
         "role": "system",
         "content": "Final blog post written based on proofreading feedback"
     })
 
     print("Finalizer completed. Workflow ending.")
-    return {"state": new_state, "next": END}
+    # Return state updates for LangGraph
+    return {
+        "final_blog_post": final_blog_post,
+        "messages": messages
+    }
 
 
 def build_nationals_blog_system() -> StateGraph:
@@ -385,94 +370,48 @@ def build_nationals_blog_system() -> StateGraph:
     return workflow.compile()
 
 
-def run_nationals_blog_system_debug() -> str:
-    """
-    Run the multi-agent system in a simple sequential way for debugging
-    """
-    # Ensure Anthropic API key is set
-    if "ANTHROPIC_API_KEY" not in os.environ:
-        print("Warning: ANTHROPIC_API_KEY environment variable not set. Using placeholder value.")
-        os.environ["ANTHROPIC_API_KEY"] = "your_anthropic_api_key"
-
-    # Get initial news data
-    news_data = search_nationals_news.invoke(None)
-    
-    # Initialize the state with news data
-    initial_state = {
-        "messages": [{"role": "system", "content": "Starting blog creation workflow"}],
-        "news_data": news_data
-    }
-    
-    print("Starting debug workflow...")
-    
-    # Run news_agent
-    print("\n=== NEWS AGENT ===")
-    news_result = news_agent(initial_state)
-    state = news_result["state"]
-    
-    # Run blog_writer
-    print("\n=== BLOG WRITER ===")
-    blog_result = blog_writer(state)
-    state = blog_result["state"]
-    
-    # Run proofreader
-    print("\n=== PROOFREADER ===")
-    proof_result = proofreader(state)
-    state = proof_result["state"]
-    
-    # Run finalizer
-    print("\n=== FINALIZER ===")
-    final_result = finalizer(state)
-    state = final_result["state"]
-    
-    # Extract and return the final blog post
-    final_blog_post = state.get("final_blog_post", "Failed to generate blog post.")
-    
-    print("\n=== FINAL BLOG POST ===\n")
-    print(final_blog_post)
-    
-    return final_blog_post
+# Legacy sequential debug function - no longer needed with LangGraph enabled
+# Kept for reference only. LangGraph now handles the workflow orchestration.
+# def run_nationals_blog_system_debug() -> str:
+#     """
+#     Run the multi-agent system in a simple sequential way for debugging
+#     (DEPRECATED: LangGraph is now enabled and working)
+#     """
+#     pass
 
 
 def run_nationals_blog_system() -> str:
     """
-    Run the multi-agent system and return the final blog post
+    Run the multi-agent system using LangGraph and return the final blog post
     """
     # Ensure Anthropic API key is set
     if "ANTHROPIC_API_KEY" not in os.environ:
         print("Warning: ANTHROPIC_API_KEY environment variable not set. Using placeholder value.")
         os.environ["ANTHROPIC_API_KEY"] = "your_anthropic_api_key"
 
-    # Choose whether to use the LangGraph or sequential approach
-    # For now, just run the debug (sequential) version that we know works
-    return run_nationals_blog_system_debug()
-    
-    # The LangGraph version below can be uncommented after more debugging:
-    """
-    # Build the workflow
+    # Build the LangGraph workflow
     workflow = build_nationals_blog_system()
-    
-    # Get initial news data
-    news_data = search_nationals_news.invoke(None)
-    
-    # Initialize the state with news data
-    initial_state = AgentState(
-        messages=[{"role": "system", "content": "Starting blog creation workflow"}],
-        news_data=news_data
-    )
-    
+
+    # Initialize the state with starting message
+    # The news_agent will populate the news data
+    initial_state: AgentState = {
+        "messages": [{"role": "system", "content": "Starting blog creation workflow"}]
+    }
+
     # Execute the workflow
-    print("Starting the Nationals blog creation workflow...")
+    print("Starting the Nationals blog creation workflow with LangGraph...")
+    print("=" * 60)
     result = workflow.invoke(initial_state)
-    
+
     # Extract and return the final blog post
     final_blog_post = result.get("final_blog_post", "Failed to generate blog post.")
-    
-    print("\n=== FINAL BLOG POST ===\n")
+
+    print("\n" + "=" * 60)
+    print("=== FINAL BLOG POST ===\n")
     print(final_blog_post)
-    
+    print("=" * 60)
+
     return final_blog_post
-    """
 
 
 if __name__ == "__main__":

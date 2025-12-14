@@ -155,16 +155,26 @@ except Exception as e:
 
 ### 2. Agent Pattern
 ```python
-def agent_name(state) -> AgentState:
+def agent_name(state: AgentState) -> AgentState:
     """Agent description"""
     print("Running agent_name...")
-    new_state = state.copy()  # Never mutate input
 
     # Do work...
-    new_state["key"] = value
+    result_value = perform_work(state)
 
-    print("Agent completed. Next: next_node")
-    return {"state": new_state, "next": "next_node"}
+    # Prepare messages list
+    messages = state.get("messages", [])
+    messages.append({
+        "role": "system",
+        "content": "Agent completed its work"
+    })
+
+    print("Agent completed.")
+    # Return state updates for LangGraph (not the full state)
+    return {
+        "key": result_value,
+        "messages": messages
+    }
 ```
 
 ### 3. LLM Invocation
@@ -211,20 +221,21 @@ python agent.py
 # 8. "=== FINAL BLOG POST ===" + content
 ```
 
-### Current Implementation Note
+### Current Implementation
 
-The codebase has **two workflow implementations**:
+The system now uses **LangGraph for workflow orchestration** (enabled as of 2025-12-14):
 
-1. **LangGraph (lines 362-385)**: Defined but commented out
-   - Proper graph-based execution
-   - Currently disabled for debugging
+**LangGraph Implementation (lines 347-370)**: ✅ Active
+- Proper graph-based execution with StateGraph
+- Agents communicate via state updates
+- Automatic workflow orchestration
+- Used via `run_nationals_blog_system()` (lines 383-413)
 
-2. **Sequential Debug (lines 388-434)**: Currently active
-   - Simple sequential execution
-   - Manually chains agents
-   - Used via `run_nationals_blog_system()` → `run_nationals_blog_system_debug()`
-
-**Why?** The comment at line 450 suggests LangGraph needs more debugging. The sequential version is known to work.
+**Key Changes:**
+- All agents now return state updates as dictionaries (not wrapped with "next" keys)
+- LangGraph handles routing between nodes automatically
+- The sequential debug version has been deprecated and removed
+- Agents use proper type hints: `def agent_name(state: AgentState) -> AgentState`
 
 ---
 
@@ -232,25 +243,28 @@ The codebase has **two workflow implementations**:
 
 ### Adding a New Agent
 
-1. **Define the agent function** (follow pattern at lines 122-147):
+1. **Define the agent function** (follow pattern at lines 122-148):
 ```python
-def new_agent(state) -> AgentState:
+def new_agent(state: AgentState) -> AgentState:
     """Description of what this agent does"""
     print("Running new_agent...")
-    new_state = state.copy()
 
     # Your logic here
-    new_state["new_key"] = value
+    result = perform_some_work(state)
 
-    if "messages" not in new_state:
-        new_state["messages"] = []
-    new_state["messages"].append({
+    # Prepare messages list (always get from state first)
+    messages = state.get("messages", [])
+    messages.append({
         "role": "system",
         "content": "What this agent did"
     })
 
-    print("New agent completed. Next: next_node")
-    return {"state": new_state, "next": "next_node"}
+    print("New agent completed.")
+    # Return ONLY the state updates (LangGraph merges with existing state)
+    return {
+        "new_key": result,
+        "messages": messages
+    }
 ```
 
 2. **Update AgentState TypedDict** (lines 24-30):
@@ -260,9 +274,20 @@ class AgentState(TypedDict, total=False):
     new_key: str  # Add your new state field
 ```
 
-3. **Add to workflow**:
-   - LangGraph version: Add node and edges (lines 369-379)
-   - Sequential version: Add function call in `run_nationals_blog_system_debug()` (lines 388-434)
+3. **Add to LangGraph workflow** (lines 347-370):
+```python
+def build_nationals_blog_system() -> StateGraph:
+    workflow = StateGraph(AgentState)
+
+    # Add your new node
+    workflow.add_node("new_agent", new_agent)
+
+    # Add edges to connect it to the workflow
+    workflow.add_edge("previous_agent", "new_agent")
+    workflow.add_edge("new_agent", "next_agent")
+
+    return workflow.compile()
+```
 
 ### Modifying Search Behavior
 
@@ -389,14 +414,16 @@ anthropic>=0.18.0
 **Do**:
 - Extract shared LLM configuration (temperature varies by agent)
 - Create helper functions for common patterns
-- Add type hints to all functions
+- Add type hints to all functions (now using `state: AgentState`)
 - Document agent responsibilities
+- Return only state updates from agents (LangGraph merges them)
 
 **Don't**:
 - Remove debug prints (they're intentional)
-- Skip state copying (prevents bugs)
+- Return full copied state (return updates only)
 - Change agent signatures without updating workflow
 - Modify mock data structure without updating NewsArticle TypedDict
+- Use old pattern of returning `{"state": ..., "next": ...}`
 
 ### Code Style Observations
 
@@ -440,14 +467,14 @@ git push -u origin claude/claude-md-mi85vpwcxu2ctoyo-01Xpxn3TbyEozbBWVQWaRQJS
 
 ### Suggested Enhancements
 
-1. **Enable LangGraph workflow** (lines 451-475)
-   - Debug state passing issues
-   - Replace sequential execution
-   - Enable parallel agent execution where possible
+1. ~~**Enable LangGraph workflow**~~ ✅ **COMPLETED (2025-12-14)**
+   - ~~Debug state passing issues~~
+   - ~~Replace sequential execution~~
+   - All agents now use LangGraph orchestration
 
-2. **Add requirements.txt**
-   - Document exact dependency versions
-   - Enable easy environment setup
+2. ~~**Add requirements.txt**~~ ✅ **COMPLETED (2025-12-14)**
+   - ~~Document exact dependency versions~~
+   - ~~Enable easy environment setup~~
 
 3. **Separate concerns**
    - Move agents to `agents/` directory
@@ -484,15 +511,16 @@ git push -u origin claude/claude-md-mi85vpwcxu2ctoyo-01Xpxn3TbyEozbBWVQWaRQJS
 - Documentation: `README.md`, `CLAUDE.md`
 
 ### Key Functions
-- Entry point: `run_nationals_blog_system()` (line 437)
-- Workflow: `run_nationals_blog_system_debug()` (line 388)
+- Entry point: `run_nationals_blog_system()` (line 383)
+- LangGraph workflow builder: `build_nationals_blog_system()` (line 347)
 - Search: `search_nationals_news()` (line 35)
 - Mock data: `get_mock_nationals_news()` (line 93)
+- Agents: `news_agent()` (122), `blog_writer()` (151), `proofreader()` (217), `finalizer()` (282)
 
 ### Configuration
-- Claude model: Line 171, 245, 318 (`claude-3-7-sonnet-20250219`)
+- Claude model: Lines 167, 234, 304 (`claude-3-7-sonnet-20250219`)
 - Search query: Line 59
-- Blog length: Line 190 (500 words)
+- Blog length: Line 187 (~500 words)
 - Temperatures: 0.7 (creative), 0.2 (proofreading)
 
 ### State Keys
@@ -522,7 +550,16 @@ This is a demonstration/educational project showing multi-agent workflows with L
 
 ## Recent Updates
 
-### 2025-12-14
+### 2025-12-14 (Part 2) - LangGraph Enabled! 🎉
+- ✅ **Enabled LangGraph workflow** - Now using proper graph-based execution
+- ✅ Fixed all agent return signatures to work with LangGraph
+- ✅ Agents now return state updates only (not full state copies)
+- ✅ Added proper type hints: `def agent_name(state: AgentState) -> AgentState`
+- ✅ Removed deprecated sequential debug workflow
+- ✅ Updated all documentation to reflect LangGraph implementation
+- ✅ Reduced agent.py from 476 to 418 lines (cleaner code)
+
+### 2025-12-14 (Part 1) - Project Infrastructure
 - ✅ Added `requirements.txt` with all Python dependencies
 - ✅ Created `.env.example` template for environment variables
 - ✅ Added comprehensive `.gitignore` for Python projects
@@ -534,4 +571,4 @@ This is a demonstration/educational project showing multi-agent workflows with L
 
 **Last Updated**: 2025-12-14
 **Claude Model Used**: Claude 3.7 Sonnet (claude-3-7-sonnet-20250219)
-**Project Status**: Functional with sequential workflow, LangGraph version pending debugging
+**Project Status**: ✅ Fully functional with LangGraph workflow orchestration enabled
